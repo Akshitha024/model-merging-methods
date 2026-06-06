@@ -1,0 +1,7 @@
+{
+  "cosine_to_base": 0.9991627012446409,
+  "cosine_to_parent_avg": 0.9987491622298147,
+  "mean_abs_drift": 0.02979365406185817,
+  "n_layers": 6.0,
+  "top_layer_l2": 1.3671452802555155
+}

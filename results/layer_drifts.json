@@ -1,0 +1,50 @@
+{
+  "linear": {
+    "layer_0.weight": 0.9422973727978106,
+    "layer_1.weight": 0.9232601127210537,
+    "layer_2.weight": 0.9200964522407207,
+    "layer_3.weight": 0.932575789419555,
+    "layer_4.weight": 0.911086403512304,
+    "layer_5.weight": 0.9076229157124487
+  },
+  "slerp": {
+    "layer_0.weight": 0.9422925275203592,
+    "layer_1.weight": 0.9242521208057303,
+    "layer_2.weight": 0.9215421437667991,
+    "layer_3.weight": 0.9329396785384896,
+    "layer_4.weight": 0.9127031122464287,
+    "layer_5.weight": 0.9092051320588596
+  },
+  "task_arith": {
+    "layer_0.weight": 2.8268921183934292,
+    "layer_1.weight": 2.769780338163161,
+    "layer_2.weight": 2.7602893567221622,
+    "layer_3.weight": 2.797727368258665,
+    "layer_4.weight": 2.7332592105369113,
+    "layer_5.weight": 2.7228687471373463
+  },
+  "ties": {
+    "layer_0.weight": 1.9677228077797566,
+    "layer_1.weight": 1.9346594405850461,
+    "layer_2.weight": 1.911627082461569,
+    "layer_3.weight": 1.9673545771631697,
+    "layer_4.weight": 1.8917911617784537,
+    "layer_5.weight": 1.8963934961950695
+  },
+  "dare": {
+    "layer_0.weight": 1.3671452802555155,
+    "layer_1.weight": 1.2959145381182204,
+    "layer_2.weight": 1.3186942956883665,
+    "layer_3.weight": 1.2732380521298805,
+    "layer_4.weight": 1.3015681450715617,
+    "layer_5.weight": 1.2732624250938773
+  },
+  "model_stock": {
+    "layer_0.weight": 1.2125100562087912,
+    "layer_1.weight": 1.1736681562317024,
+    "layer_2.weight": 1.1704723154775158,
+    "layer_3.weight": 1.2024691897904833,
+    "layer_4.weight": 1.1564081713417522,
+    "layer_5.weight": 1.1608238881249655
+  }
+}
