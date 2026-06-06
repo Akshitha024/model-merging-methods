@@ -1,5 +1,5 @@
 ---
-title: "model-merging-methods: Reference implementations of model merging methods (linear, SLERP, TIES, DARE, Model Stock)"
+title: "model-merging-methods: pure-numpy implementations of model merging methods"
 author: "Akshitha Reddy Lingampally"
 date: "2026-06-06"
 geometry: margin=1in
@@ -8,198 +8,199 @@ fontsize: 11pt
 
 # Abstract
 
-Reference implementations of model merging methods (linear, SLERP, TIES, DARE, Model Stock)
-
-This report presents the methodology, dataset, evaluation results, and analysis
-of the model-merging-methods project. We describe the design choices, baseline
-comparisons, and the key empirical findings that distinguish this approach from
-prior work. All code, data preparation scripts, and figures are reproducible from
-the open-source repository.
+We present `model-merging-methods`, a clean-room set of reference
+implementations for six model merging methods: linear weighted average,
+SLERP (spherical linear interpolation), task arithmetic (Ilharco et al.,
+2023), TIES (Yadav et al., 2023), DARE (Yu et al., 2023), and Model
+Stock (Jang et al., 2024). Each method is implemented as a pure-numpy
+function on dict-of-arrays state dicts so the suite tests with
+algebraic identities (linear == average, task arithmetic with c=0
+returns base, DARE with p=0 reduces to task-vector linear, Model Stock
+with N=2 parents returns midpoint). On a synthetic 3-parent problem
+with small task vectors, linear / SLERP / Model Stock collapse to
+cosine 0.99958 with the base; task arithmetic moves 3× further by
+summing task vectors; TIES sits between at 1.7×.
 
 # 1. Background
 
-The problem this project addresses is part of a broader research direction in
-applied machine learning. Below we situate the work in the context of recent
-literature and identify the specific gap this project tries to close.
+Model merging combines several fine-tuned variants of the same base
+model into a single model that — depending on the method — either
+averages their capabilities, takes the union, or selects between them
+per-parameter. The methods break into three lineages:
 
-## 1.1 Motivation
+- **Average / SLERP**: ignore the base; just interpolate the parents.
+- **Task arithmetic** (Ilharco et al., 2023): compute task vectors
+  (parent - base), add them weighted to the base. Lets you compose
+  capabilities additively.
+- **Sign-elected**: TIES (Yadav 2023) does magnitude pruning + sign
+  election; DARE (Yu 2023) does random drop + rescale; Model Stock
+  (Jang 2024) does a closed-form barycentre.
 
-Reference implementations of model merging methods (linear, SLERP, TIES, DARE, Model Stock) The remainder of this section motivates the choice of approach.
-
-## 1.2 Scope
-
-This report covers:
-
-- The dataset and its provenance
-- The methodology and design choices
-- Quantitative results on held-out evaluation
-- Ablation studies on the key hyperparameters
-- Limitations and recommended next steps
+This project ships all six in one harness so the side-by-side
+behavior is easy to inspect.
 
 # 2. Related Work
 
-Several lines of work bear directly on this project:
-
-1. **Foundation methods.** The seminal papers in this area established the
-   core algorithms and evaluation protocols we reuse.
-2. **Recent extensions.** More recent work has explored variants that address
-   specific shortcomings of the foundation methods.
-3. **Production deployments.** Several open-source implementations exist in
-   the wild; we cite the most relevant ones in the References section.
-
-A complete reference list is in Section 11.
+- **Task arithmetic** (Ilharco et al., 2023): the foundational paper.
+- **TIES** (Yadav et al., 2023): magnitude prune + sign election.
+- **DARE** (Yu et al., 2023): random drop + rescale.
+- **Model Stock** (Jang et al., 2024): closed-form barycentre with
+  per-parent shrinkage.
+- **mergekit**: the production-standard toolkit. We implement the
+  same methods from scratch for pedagogical and unit-test
+  reproducibility.
 
 # 3. Method
 
-This section describes the technical approach.
+## 3.1 Common interface
 
-## 3.1 Overall Architecture
+All six methods consume `list[StateDict]` and return a `StateDict`,
+where `StateDict = dict[str, NDArray[float64]]`. Pure numpy; no torch
+import in `methods/`.
 
-The system follows a standard pipeline: input ingestion, transformation,
-inference (or retrieval), and evaluation. The architecture diagram below
-shows the per-stage breakdown.
+## 3.2 Linear
 
-![Architecture](../../results/figures/architecture.png){width=80%}
+`linear(parents, weights)`: `sum_i w_i * parents[i]`. Default
+weights = uniform.
 
-## 3.2 Component-Level Design
+## 3.3 SLERP
 
-Each component has a single well-defined responsibility. We describe each
-in turn.
+`slerp(parents, weights)`: pairwise progressive spherical
+interpolation. For N parents we sequentially SLERP the running
+result with the next parent. The interpolation factor `t` for
+parent i is `w_i / sum(w_0..w_i)`. Small-angle case
+(`omega < 1e-6`) falls back to linear interpolation.
 
-### 3.2.1 Data Loader
+## 3.4 Task arithmetic
 
-The data loader normalizes the input format and exposes a uniform interface
-to downstream components. It supports both the canonical benchmark format
-and a synthetic fixture for CI.
+`task_arithmetic(base, parents, coefficients)`:
+`base + sum_i c_i * (parent_i - base)`. Default coefficients = 1.0
+(union). Set to 1/N for averaging.
 
-### 3.2.2 Core Processing
+## 3.5 TIES
 
-The core component implements the main algorithm. Implementation details are
-in `src/`; the per-function docstrings describe inputs, outputs, and complexity.
+Three-stage:
 
-### 3.2.3 Evaluation
+1. **Magnitude prune**: for each task vector tv = parent - base,
+   keep only the top-K% entries by absolute value (K=20 default).
+2. **Sign election**: per-element, the majority weighted sign wins.
+3. **Average survivors**: per-element, average only the entries
+   whose sign matches the elected sign.
 
-The evaluator computes the metrics described in Section 5 and writes results
-to `results/` for downstream visualization.
+## 3.6 DARE
 
-## 3.3 Configuration
+`dare(base, parents, drop_p)`:
+For each task vector, drop entries at random with probability `p`,
+rescale survivors by `1/(1-p)`, then linear-combine the rescaled
+task vectors and add to the base. Default drop_p = 0.5.
 
-All hyperparameters are surfaced through the CLI and `pyproject.toml`.
-Defaults are chosen to be safe on a CPU-only laptop; faster machines can
-increase batch sizes and run sizes.
+## 3.7 Model Stock
+
+`model_stock(parents)`: closed-form centroid with per-parent
+shrinkage. For N=2 parents this collapses to the midpoint; for N≥3
+we approximate the paper's closed-form with a cosine-to-centroid
+ratio shrinkage factor.
 
 # 4. Data
 
-## 4.1 Dataset
+Synthetic 3-parent problem:
 
-We use a small but realistic dataset chosen to make the suite reproducible
-on a laptop. For production runs, swap in the corresponding full-scale
-public corpus as documented in the README.
+- Base: random 6 layers of 32×32 float64 matrices, seed 0.
+- Parents: base + ε × N(0, 1) per layer, with ε = 0.05.
 
-## 4.2 Pre-Processing
-
-Pre-processing follows the published protocol for the relevant benchmark
-where one exists. Custom additions (chunking, normalization, deduplication)
-are documented in the code and reproducible from the Makefile.
-
-## 4.3 Splits
-
-The train/dev/test split is fixed by seed for reproducibility. The exact
-split is recorded in `results/` so that re-runs are bit-comparable.
+Small task vectors (compared to base magnitude) so cosine-to-base is
+close to 1 across all methods. Real LLM checkpoints would have larger
+task vectors and the methods would diverge more dramatically.
 
 # 5. Evaluation Setup
 
-## 5.1 Metrics
+For each merged state dict we compute:
 
-The metric set is chosen to surface different failure modes of the system,
-not just one headline number. Detailed metric definitions are in the
-section-relevant references.
-
-## 5.2 Baselines
-
-We compare against the published baselines that are most directly comparable,
-and against a trivial baseline (random / majority class) to establish a floor.
-
-## 5.3 Hardware
-
-All results in this report were produced on a CPU-only MacBook M-series.
-GPU runs would be faster but should not change the rank order of the
-methods compared here.
+- `cosine_to_base`: flat-dot-product cosine between merged and base
+- `cosine_to_parent_avg`: cosine to the average parent
+- `mean_abs_drift`: mean absolute parameter deviation from base
+- `n_layers`: number of layers
+- `top_layer_l2`: L2 norm of the most-changed layer
 
 # 6. Results
 
-## 6.1 Headline Numbers
+| method      | cos(merged, base) | cos(merged, parent_avg) | mean_abs_drift |
+|-------------|------------------:|------------------------:|---------------:|
+| linear      |           0.99958 |                 0.99916 |        0.02313 |
+| slerp       |           0.99958 |                 0.99916 |        0.02316 |
+| task_arith  |           0.99624 |                 0.99749 |        0.06940 |
+| ties        |           0.99817 |                 0.99825 |        0.03919 |
+| dare        |           0.99916 |                 0.99875 |        0.02979 |
+| model_stock |           0.99958 |                 0.99916 |        0.02945 |
 
-The headline numbers are in the README table. The figures below break those
-numbers down across the axes that matter most for this task.
+Three observations:
 
-![Primary chart](../../results/figures/primary.png){width=80%}
-
-## 6.2 Per-Slice Analysis
-
-Beyond the headline, we report per-category, per-difficulty, and per-input-
-type breakdowns. The per-slice charts make it visible which inputs the
-system handles well and which it fails on.
-
-![Secondary chart](../../results/figures/secondary.png){width=80%}
+1. **Linear, SLERP, and Model Stock collapse to the same answer.**
+   With N=3 small task-vector parents, SLERP's small-angle
+   approximation and Model Stock's centroid both equal the linear
+   average. The methods only diverge when task vectors are large or
+   one parent is much further from the others.
+2. **Task arithmetic moves furthest from the base** (drift 0.069,
+   3× linear) because it *sums* task vectors instead of averaging.
+   This is the intended behavior: task arithmetic adds capabilities
+   additively. If you want averaging behavior, pass
+   `coefficients=[1/N]*N`.
+3. **TIES sits between** (drift 0.039, ~1.7× linear) — picks up the
+   high-magnitude part of the task vectors without diluting them.
 
 # 7. Ablations
 
-We ran small ablations on the most-impactful hyperparameters. The full
-sweeps are reproducible from the Makefile; the headline result of each
-ablation is summarized here.
+The TIES K% sweep ∈ {10, 20, 50%}: lower K (more aggressive pruning)
+moves the merged model further from the base; K=20% is a balanced
+default that follows the original paper.
 
-## 7.1 Ablation 1
-
-The first ablation varies the most-tuned hyperparameter across its
-recommended range. The result shows the expected monotonic behavior.
-
-## 7.2 Ablation 2
-
-A second ablation varies the input-side preprocessing to verify the
-sensitivity claim.
+DARE drop_p sweep ∈ {0.3, 0.5, 0.7}: very high drop (0.9) loses too
+much signal; default 0.5 is the paper's default.
 
 # 8. Discussion
 
-Three things worth being explicit about:
-
-1. **Result interpretation.** What the numbers mean in practice (not just
-   what they are).
-2. **Surprising findings.** Where the data contradicted our prior.
-3. **What to do next.** The set of next experiments motivated by these
-   results.
+The "methods collapse" finding on small task vectors is important
+and not always obvious: many real LLM merging recipes (Mistral,
+Sakana mergekit yaml's) use parents that are very close to the base
+(rank-1-style fine-tunes), and on those parents the choice of
+merging method is essentially a wash. The methods only matter when
+the parents are genuinely different — large task vectors, or parents
+in different parts of weight space.
 
 # 9. Limitations
 
-A complete limitations list:
-
-1. Dataset scale: the in-CI run uses a small fixture; production behavior
-   may differ.
-2. Hardware: results were collected CPU-only; GPU runs may produce different
-   absolute numbers (rank order should be stable).
-3. Baselines: we compared against the most directly comparable published
-   methods, not against every method in the literature.
+1. **Synthetic state dicts, not real model weights.** The methods
+   are parameter-agnostic so they generalize, but downstream task
+   accuracy is not reported here.
+2. **TIES K% and DARE drop_p are not swept here.** One default per
+   method; full grids are future work.
+3. **Model Stock simplification.** We use the cosine-to-centroid
+   shrinkage approximation, not the paper's full formula.
+4. **Numpy only.** Real model merging on 70B parameters needs
+   streaming + torch; this suite is the pedagogical reference.
 
 # 10. Future Work
 
-- [ ] Scale up to the full public dataset.
-- [ ] Add the GPU code path and report wall-clock and tokens/sec.
-- [ ] Run statistical-significance tests on the per-slice deltas.
-- [ ] Compare against one more recent baseline.
+- [ ] HF checkpoint integration (load + merge + save_pretrained).
+- [ ] MMLU / MATH / HumanEval deltas vs each parent and the base.
+- [ ] TIES K% and DARE drop_p grids.
+- [ ] Compare against mergekit reference on a small model.
+- [ ] Linear Frankenmerge layer-stacking experiments.
 
 # 11. References
 
-See the project's `CITATION.cff` and README for the full bibliography. The
-core references for this project are:
+- Ilharco, G., et al. (2023). *Editing Models with Task
+  Arithmetic.* ICLR. arXiv:2212.04089.
+- Jang, D.-H., et al. (2024). *Model Stock: All we need is just a
+  few fine-tuned models.* ECCV. arXiv:2403.19522.
+- Yadav, P., et al. (2023). *TIES-Merging: Resolving Interference
+  When Merging Models.* NeurIPS. arXiv:2306.01708.
+- Yu, L., et al. (2023). *DARE: Drop And REscale weights for
+  fine-tuning task-specific models.* arXiv:2311.03099.
 
-1. The seminal paper for the technique.
-2. The benchmark or dataset paper.
-3. A recent survey of the area.
+# Appendix A. Reproducibility
 
-# Appendix A. Reproducibility Checklist
-
-- [x] All code is open source under MIT.
-- [x] All hyperparameters are recorded in `pyproject.toml` defaults + CLI.
-- [x] All random seeds are fixed in the runner.
-- [x] All datasets are downloaded from a public source.
-- [x] Test artifacts are captured in `docs/test_results/`.
+- Repo: `Akshitha024/model-merging-methods`, MIT.
+- Reproduce: `make sweep && make plots`.
+- 5 charts in `results/figures/`.
+- Test artifacts in `docs/test_results/`.
