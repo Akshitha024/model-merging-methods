@@ -119,7 +119,7 @@ flowchart LR
     M4 --> C
     M5 --> C
     M6 --> C
-    C --> R[results/*.json]
+    C --> R["results/*.json"]
     R --> V[viz.charts]
     V --> F[5 figures]
 ```
