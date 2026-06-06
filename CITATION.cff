@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+title: merge — Model merging lab (TIES + DARE + SLERP + Model Stock)
+authors:
+  - family-names: Lingampally
+    given-names: Akshitha Reddy
+type: software
+date-released: 2024-08-21
+repository-code: https://github.com/Akshitha024/model-merging-lab
+license: MIT
+references:
+  - type: article
+    title: "TIES-Merging: Resolving Interference When Merging Models"
+    authors: [{family-names: Yadav, given-names: Prateek}]
+    year: 2023
+    url: https://arxiv.org/abs/2306.01708
+  - type: article
+    title: "DARE: Drop And REscale weights for fine-tuning task-specific models"
+    authors: [{family-names: Yu, given-names: Le}]
+    year: 2023
+    url: https://arxiv.org/abs/2311.03099
+  - type: article
+    title: "Editing Models with Task Arithmetic"
+    authors: [{family-names: Ilharco, given-names: Gabriel}]
+    year: 2023
+    url: https://arxiv.org/abs/2212.04089
+  - type: article
+    title: "Model Stock: All we need is just a few fine-tuned models"
+    authors: [{family-names: Jang, given-names: Dong-Hwan}]
+    year: 2024
+    url: https://arxiv.org/abs/2403.19522
