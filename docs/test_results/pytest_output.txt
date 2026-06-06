@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.14, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/mani/Projects/akshitha-portfolio/projects/model-merging-lab
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0
+collected 16 items
+
+tests/test_methods.py ..........                                         [ 62%]
+tests/test_metrics.py ......                                             [100%]
+
+============================== 16 passed in 0.17s ==============================

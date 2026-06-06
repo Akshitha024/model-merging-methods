@@ -1,0 +1,19 @@
+................                                                         [100%]
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.11.14-final-0 _______________
+
+Name                            Stmts   Miss  Cover
+---------------------------------------------------
+src/merge/__init__.py               1      0   100%
+src/merge/cli/__init__.py           0      0   100%
+src/merge/cli/main.py              25     25     0%
+src/merge/methods/__init__.py       0      0   100%
+src/merge/methods/methods.py      130     21    84%
+src/merge/metrics/__init__.py       0      0   100%
+src/merge/metrics/compare.py       35      4    89%
+src/merge/runner.py                54     54     0%
+src/merge/types.py                 10      0   100%
+src/merge/viz/__init__.py           0      0   100%
+src/merge/viz/charts.py           153    153     0%
+---------------------------------------------------
+TOTAL                             408    257    37%
